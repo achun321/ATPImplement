@@ -3,6 +3,13 @@ Copied from VideoBERT: https://github.com/ammesatyajit/VideoBERT.
 Should be low-capacity transformer that does not receive any input 
 positional encodings. Transformers should be  restricted to 1 to 3 layers, with 128 or 256
 size hidden dimension and 1 or 2 heads.
+
+Supplementary details:
+- Divide video up into 4 to 8 partitions --> choose 4 candidates from each partition (dataset.py)
+input 4 candidates into ATP model (atp.py) --> choose best candidate for each partition through ATP model
+- Input embeddings for ATP are 512-dimensional inputs / original paper adds in learnable modality encodings
+to these inputs to differentiate between image vs language inputs
+- Training Details: learning rate of 1e-4, dropout of 0.1, weight decay 0.1; Adam optimizer
 """
 
 import torch
@@ -18,6 +25,8 @@ class VideoTransformer(nn.Module):
         self.args = args
 
         self.tok_embed = nn.Embedding(self.config.vocab_size, self.config.hidden_size)
+        # TODO: remove position encodings 
+        self.pos_encoding = nn.Embedding(300, self.config.hidden_size)
         self.tok_type_embed = nn.Embedding(2, self.config.hidden_size)
 
         self.dropout = nn.Dropout(0.1)
@@ -28,6 +37,7 @@ class VideoTransformer(nn.Module):
         self.fc_out = nn.Linear(self.config.hidden_size, self.config.vocab_size)
 
         num_layers = self.config.num_hidden_layers//2
+        #TODO: convert to only encoder
         self.transformer = nn.Transformer(d_model=self.config.hidden_size,
                                           nhead=self.config.num_attention_heads,
                                           num_encoder_layers=num_layers,

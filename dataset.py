@@ -6,6 +6,7 @@ from decord import VideoReader, cpu
 from torch.utils.data import Dataset
 import pandas as pd
 import itertools
+import random
 
 class VideoDataset(Dataset):
     """
@@ -32,7 +33,9 @@ class VideoDataset(Dataset):
         """
         sample = self.data_samples[index]
         batches = self.load_video(sample)
-        # for every batch in batches, shuffle video frames and randomly choose self.candidates number of frames 
+        # for every batch in batches, shuffle video frames and randomly choose self.candidates number of frames
+        for batch in batches:
+            batch = self.random_select_candidates(batch)
         return batches
 
     def load_video(self, sample):
@@ -65,7 +68,12 @@ class VideoDataset(Dataset):
         
         return batches
         
-
+    def random_select_candidates(self, batch: list):
+        # takes in one batch of frames as input and randomly selects candidates / shuffles them
+        while len(batch) > self.candidates:
+            batch.pop(random.randrange(len(batch)))
+        random.shuffle(batch)
+        return batch
 
 
 
