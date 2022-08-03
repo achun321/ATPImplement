@@ -10,7 +10,6 @@ import git
 from simple_parsing import ArgumentParser, Serializable
 from simple_parsing.helpers import dict_field
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -19,7 +18,9 @@ class CfgFileConfig:
     """Config file args"""
 
     config: Optional[Path] = None  # path to config file
-    save_config: bool = True  # set to false if you don't want to save config automatically
+    save_config: bool = (
+        True  # set to false if you don't want to save config automatically
+    )
 
 
 @dataclass
@@ -30,6 +31,7 @@ class ModelParams:
     num_hidden_layers: int = 3
     num_attention_heads: int = 2
     freeze_vision_base: bool = True
+
 
 @dataclass
 class Hparams:
@@ -55,12 +57,24 @@ class Hparams:
     train_logging_opt_steps: int = 50
     val_logging_opt_steps: int = train_logging_opt_steps * 5
     train_saving_opt_steps: int = train_logging_opt_steps * 5
-    save_dir: Optional[Path] = None
+    save_dir: Optional[Path] = "save"
+
 
 @dataclass
 class DatasetParams:
     """Dataset Parameters"""
+
+    train_data_path: str = None
+    val_data_path: Optional[str] = None
+    video_path: Optional[str] = None
     num_partitions: int = 4
+    num_candidates: int = 1
+    keep_aspect_ratio: bool = False
+    new_height: int = 224
+    new_width: int = 224
+    num_threads: int = 1
+    num_workers: int = 0
+
 
 @dataclass
 class OptimizerParams:
@@ -80,7 +94,9 @@ class OptimizerParams:
 
     lr_scheduler: str = "get_constant_schedule_with_warmup"
     lr_scheduler_params: Dict[str, Any] = dict_field(
-        dict(num_warmup_steps=5_000, last_epoch=-1)  # number of warmup steps for the learning rate
+        dict(
+            num_warmup_steps=5_000, last_epoch=-1
+        )  # number of warmup steps for the learning rate
     )
 
 
@@ -108,18 +124,21 @@ class Parameters(Serializable):
                     " using one."
                 )
             if key not in expected:
-                raise ValueError(f"{key} is not a valid parameter for {self.__class__.__name__}")
+                raise ValueError(
+                    f"{key} is not a valid parameter for {self.__class__.__name__}"
+                )
 
     def __post_init__(self, should_verify: bool = True):
         """Post-initialization code"""
         self.verify(should_verify=should_verify)
 
         # Get commit id
-        self.hparams.repo_commit_id = git.Repo(search_parent_directories=True).head.object.hexsha
+        self.hparams.repo_commit_id = git.Repo(
+            search_parent_directories=True
+        ).head.object.hexsha
 
         # Assign batch size to data as well for dataloaders
         self.data.batch_size = self.hparams.batch_size
-        self.model.num_partitions = self.data.num_partitions
 
     @classmethod
     def parse(cls):

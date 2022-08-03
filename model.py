@@ -1,33 +1,40 @@
 import torch
 from torch import nn
 from transformers import BertConfig, CLIPModel
-from transformers.models.bert import BertEncoder
+from transformers.models.bert.modeling_bert import BertEncoder
 
 
 class ATP(nn.Module):
-    def __init__(self, config):
+    def __init__(
+        self,
+        clip_checkpoint: str = "openai/clip-vit-base-patch32",
+        transformer_base_model: str = "bert-base-uncased",
+        hidden_size: int = 256,
+        num_hidden_layers: int = 3,
+        num_attention_heads: int = 2,
+        freeze_vision_base: bool = True,
+        **kwargs,
+    ):
         super().__init__()
-        self.clip = CLIPModel.from_pretrained(config.clip_checkpoint)
+        self.clip = CLIPModel.from_pretrained(clip_checkpoint)
         bert_config = BertConfig.from_pretrained(
-            config.transformer_base_model,
-            hidden_size=config.hidden_size,
-            num_hidden_layers=config.num_hidden_layers,
-            num_attention_heads=config.num_attention_heads,
+            transformer_base_model,
+            hidden_size=hidden_size,
+            num_hidden_layers=num_hidden_layers,
+            num_attention_heads=num_attention_heads,
         )
         self.initializer_range = bert_config.initializer_range
 
-        self.projection = nn.Linear(
-            self.clip.config.hidden_size, bert_config.hidden_size
-        )
+        self.projection = nn.Linear(self.clip.config.projection_dim, hidden_size)
         self.atp_selector = BertEncoder(bert_config)
         self.classifier = nn.Sequential(
-            nn.Linear(bert_config.hidden_size, bert_config.hidden_size),
+            nn.Linear(hidden_size, hidden_size),
             nn.ReLU(),
-            nn.Linear(bert_config.hidden_size, config.num_partitions),
+            nn.Linear(hidden_size, 1),
         )
         self.init_weights()
 
-        if config.freeze_vision_base:
+        if freeze_vision_base:
             for p in self.clip.parameters():
                 p.requires_grad = False
 
@@ -52,11 +59,14 @@ class ATP(nn.Module):
 
     def forward(self, x, class_tensors):
         with torch.no_grad():
+            bs, num_partitions, c, h, w = x.size()
+            x = x.view(bs * num_partitions, c, h, w)
             x = self.clip.get_image_features(x)
-        x = self.projection(x)
-        x = self.atp_selector(x)
-        logits = self.classifier(x)
+            x = x.view(bs, num_partitions, -1)
+        projection = self.projection(x)
+        selection = self.atp_selector(projection).last_hidden_state
+        logits = self.classifier(selection).squeeze()
         probs = nn.functional.softmax(logits, dim=-1)
-        x = (probs * x).sum(dim=-1)
+        x = (probs.unsqueeze(-1) * x).sum(dim=1)
         class_logits = x @ class_tensors.t()
         return class_logits

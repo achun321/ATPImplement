@@ -147,3 +147,6 @@ data_files/*
 
 # Large files
 large_files/
+
+# Save folder
+save
