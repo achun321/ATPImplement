@@ -2,7 +2,9 @@ import torch
 from torch import nn
 from transformers import BertConfig, CLIPModel
 from transformers.models.bert.modeling_bert import BertEncoder
+from transformers import CLIPTokenizer
 
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 class ATP(nn.Module):
     def __init__(
@@ -13,6 +15,7 @@ class ATP(nn.Module):
         num_hidden_layers: int = 3,
         num_attention_heads: int = 2,
         freeze_vision_base: bool = True,
+        class_tensors: torch.Tensor = [[]],
         **kwargs,
     ):
         super().__init__()
@@ -24,7 +27,10 @@ class ATP(nn.Module):
             num_attention_heads=num_attention_heads,
         )
         self.initializer_range = bert_config.initializer_range
-
+        self.class_tensors = class_tensors
+        with torch.no_grad():
+            self.class_tensors.requires_grad = False
+            self.class_tensors = self.class_tensors.to(device)
         self.projection = nn.Linear(self.clip.config.projection_dim, hidden_size)
         self.atp_selector = BertEncoder(bert_config)
         self.classifier = nn.Sequential(

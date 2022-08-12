@@ -5,6 +5,7 @@ import time
 from dataclasses import InitVar, asdict, dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+import torch
 
 import git
 from simple_parsing import ArgumentParser, Serializable
@@ -31,6 +32,7 @@ class ModelParams:
     num_hidden_layers: int = 3
     num_attention_heads: int = 2
     freeze_vision_base: bool = True
+    class_tensors: torch.Tensor = [[]]
 
 
 @dataclass

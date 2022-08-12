@@ -10,5 +10,5 @@ if __name__ == "__main__":
     datamodule.setup()
     datamodule.prepare_data()
     module = ATPLightningModule(config.model, config.optim, datamodule.classes)
-    trainer = pl.Trainer(accelerator="gpu", gpus=8,default_root_dir="./checkpoints")
-    trainer.fit(model=module, datamodule=datamodule)
+    trainer = pl.Trainer(accelerator="gpu", devices=4, num_nodes=2, strategy="ddp", default_root_dir="./checkpoints")
+    trainer.fit(model=module, datamodule=datamodule) 

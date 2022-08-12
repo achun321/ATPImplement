@@ -8,10 +8,12 @@ import numpy as np
 import pandas as pd
 import pytorch_lightning as pl
 import torch
+from torchvision import transforms
 from decord import VideoReader, cpu
 from torch.utils.data import Dataset
 
 from config import DatasetParams
+
 
 
 class VideoDataModule(pl.LightningDataModule):
@@ -207,6 +209,12 @@ class VideoDataset(Dataset):
         assert len(frames) == self.num_partitions * self.num_candidates
         # Shuffle so that there is no order
         random.shuffle(frames)
+        # Apply transformations at frame level
+        transform = torch.nn.Sequential(
+            transforms.RandomHorizontalFlip(0.5),
+            transforms.ColorJitter()
+        )
         frames = np.array(frames)
         frames = torch.from_numpy(frames.transpose(0, 3, 1, 2).astype(np.float32))
+        frames = transform(frames)
         return frames

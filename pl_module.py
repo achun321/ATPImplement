@@ -9,7 +9,6 @@ from transformers import CLIPTokenizer
 
 from config import ModelParams, OptimizerParams
 from model import ATP
-from transforms import DataAugmentation
 
 
 class ATPLightningModule(pl.LightningModule):
@@ -17,9 +16,9 @@ class ATPLightningModule(pl.LightningModule):
         self, model_config: ModelParams, optim_config: OptimizerParams, classes
     ):
         super().__init__()
+        device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         self.atp = ATP(**asdict(model_config))
         self.optim_config = optim_config
-        self.transform = DataAugmentation()
         with torch.no_grad():
             tokenizer = CLIPTokenizer.from_pretrained(
                 model_config.clip_checkpoint, use_fast=True
@@ -29,7 +28,8 @@ class ATPLightningModule(pl.LightningModule):
             self.class_tensors = self.atp.clip.get_text_features(**class_tensors)
             self.atp.clip.train()
             self.class_tensors.requires_grad = False
-        self.loss = nn.CrossEntropyLoss()
+            self.class_tensors = self.class_tensors.to(device)
+        self.loss = nn.CrossEntropyLoss(ignore_index=-1)
 
     def forward(self, x, class_tensors):
         return self.atp(x, class_tensors)
@@ -39,12 +39,12 @@ class ATPLightningModule(pl.LightningModule):
         y_hat = self.forward(x, self.class_tensors)
         loss = self.loss(y_hat, y)
         return {"loss": loss}
-
-    def on_after_batch_transfer(self, batch, dataloader_idx):
+    
+    def validation_step(self, batch, batch_idx):
         x, y = batch
-        if self.trainer.training:
-            x = self.transform(x)
-        return x, y
+        y_hat = self.forward(x, self.class_tensors)
+        loss = self.loss(y_hat, y)
+        return {"loss": loss}
 
     def configure_optimizers(self):
         optim_class = getattr(torch.optim, self.optim_config.optim)
