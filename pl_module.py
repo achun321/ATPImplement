@@ -16,7 +16,6 @@ class ATPLightningModule(pl.LightningModule):
         self, model_config: ModelParams, optim_config: OptimizerParams, classes
     ):
         super().__init__()
-        device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         self.atp = ATP(**asdict(model_config))
         self.optim_config = optim_config
         with torch.no_grad():
@@ -28,8 +27,8 @@ class ATPLightningModule(pl.LightningModule):
             self.class_tensors = self.atp.clip.get_text_features(**class_tensors)
             self.atp.clip.train()
             self.class_tensors.requires_grad = False
-            self.class_tensors = self.class_tensors.to(device)
         self.loss = nn.CrossEntropyLoss(ignore_index=-1)
+
 
     def forward(self, x, class_tensors):
         return self.atp(x, class_tensors)
