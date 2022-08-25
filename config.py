@@ -32,7 +32,6 @@ class ModelParams:
     num_hidden_layers: int = 3
     num_attention_heads: int = 2
     freeze_vision_base: bool = True
-    class_tensors: torch.Tensor = [[]]
 
 
 @dataclass
@@ -75,7 +74,7 @@ class DatasetParams:
     new_height: int = 224
     new_width: int = 224
     num_threads: int = 1
-    num_workers: int = 0
+    num_workers: int = 2
 
 
 @dataclass
@@ -94,10 +93,10 @@ class OptimizerParams:
         )
     )
 
-    lr_scheduler: str = "get_constant_schedule_with_warmup"
+    lr_scheduler: str = "get_cosine_schedule_with_warmup"
     lr_scheduler_params: Dict[str, Any] = dict_field(
         dict(
-            num_warmup_steps=5_000, last_epoch=-1
+            num_warmup_steps=1000, num_training_steps=10000,last_epoch=-1
         )  # number of warmup steps for the learning rate
     )
 

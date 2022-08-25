@@ -84,6 +84,42 @@ class VideoDataModule(pl.LightningDataModule):
     def classes(self):
         return self.train_dataset.classes
 
+def remove_slash(class_name: str):
+    if "/" in class_name:
+        slash_idx = class_name.find("/")
+        space_idx = slash_idx
+        while class_name[space_idx] != " " and space_idx != len(class_name) - 1:
+            space_idx += 1
+        if space_idx != len(class_name) - 1:
+            space_idx -= 1
+        class_name = class_name[:slash_idx] + class_name[space_idx + 1:]
+    return class_name
+
+
+def charades_parser(path, video_path):
+    if video_path is None: 
+        video_path = os.path.join(path, "Charades_v1_480")
+    classes = []
+    class_path = os.path.join(path, "Charades_v1_classes.txt")
+    with open(class_path, "r") as f:
+        for line in f:
+            class_name = line.split(' ', 1)[1].strip().lower()
+            class_name = remove_slash(class_name)
+            classes.append(class_name)
+
+    samples = []
+    train_path = os.path.join(path, "charadestrain.txt")
+    with open(train_path) as f:
+        for line in f:
+            line = line.strip().split(" ")
+            if len(line) == 2:
+                samples.append(
+                    (os.path.join(video_path, line[0]), int(line[1]) - 1)
+                )
+            else:
+                samples.append((os.path.join(video_path, line[0]),))
+    return samples, classes
+
 
 def _ucf101_parser(path, video_path=None, split="train"):
     if video_path is None:
@@ -110,8 +146,7 @@ def _ucf101_parser(path, video_path=None, split="train"):
                         )
                     else:
                         samples.append((os.path.join(video_path, line[0]),))
-    return samples, classes
-
+    return tuple(samples), classes 
 
 class VideoDataset(Dataset):
     """

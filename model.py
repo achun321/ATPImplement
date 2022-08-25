@@ -3,14 +3,11 @@ from torch import nn
 from transformers import BertConfig, CLIPModel
 from transformers.models.bert.modeling_bert import BertEncoder
 
-from pl_module import ATPLightningModule
-
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 class ATP(nn.Module):
     def __init__(
         self,
-        class_tensors,
         clip_checkpoint: str = "openai/clip-vit-base-patch32",
         transformer_base_model: str = "bert-base-uncased",
         hidden_size: int = 256,
@@ -28,9 +25,6 @@ class ATP(nn.Module):
             num_attention_heads=num_attention_heads,
         )
         self.initializer_range = bert_config.initializer_range
-        self.class_tensors = class_tensors
-        with torch.no_grad():
-            self.class_tensors.requires_grad = False
         self.projection = nn.Linear(self.clip.config.projection_dim, hidden_size)
         self.atp_selector = BertEncoder(bert_config)
         self.classifier = nn.Sequential(
@@ -69,7 +63,7 @@ class ATP(nn.Module):
             x = x.view(bs * num_partitions, c, h, w)
             x = self.clip.get_image_features(x)
             x = x.view(bs, num_partitions, -1)
-        projection = self.projection(x)
+        projection = self.projection(x) 
         selection = self.atp_selector(projection).last_hidden_state
         logits = self.classifier(selection).squeeze()
         probs = nn.functional.softmax(logits, dim=-1)
